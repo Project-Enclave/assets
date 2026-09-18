@@ -1,0 +1,55 @@
+name: Sync Screenshots & Videos to Hack Club CDN
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'assets/Screenshots/**'
+      - 'assets/Videos/**'
+      - 'cdn-manifest.json'
+  workflow_dispatch:  # Allow manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  sync-cdn:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install requests
+      
+      - name: Sync files to CDN
+        env:
+          CDN_API_KEY: ${{ secrets.CDN_API_KEY }}
+        run: |
+          # Export API key for script
+          export API_KEY=$CDN_API_KEY
+          python migrate_to_cdn.py
+      
+      - name: Commit manifest changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add cdn-manifest.json
+          
+          # Only commit if there are changes
+          if git diff --cached --quiet; then
+            echo "No changes to manifest"
+          else
+            git commit -m "🔄 Update CDN manifest"
+            git push
+          fi
+
